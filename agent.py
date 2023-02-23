@@ -1,6 +1,9 @@
 import torch 
 import random
 import numpy as np
+import argparse
+import sys
+import os
 from collections import deque
 from game import SnakeGame, Point, Snake, Apple
 from model import Linear_QNet, QTrainer
@@ -11,13 +14,39 @@ BACTH_SIZE = 1000
 LR = 0.001
 
 class Agent:
-    def __init__(self):
-        self.n_games = 0
+    def __init__(self, new, filename):
         self.epsilon = 0
         self.gamma = 0.9
         self.memory = deque(maxlen=MAX_MEMORY)
+        self.filename = filename
+        if new: self.init_new()
+        else: self.init_load()
+        self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)    
+
+    
+    def init_load(self):
+        model_folder_path = './model'
+        if os.path.exists(model_folder_path):
+            filepath = os.path.join(model_folder_path, self.filename)
+            model_state_dict = torch.load(filepath)
+            self.model = Linear_QNet(11,256,3)
+            self.model.load_state_dict(model_state_dict)
+            #self.model.eval()
+            self.n_games = 200
+        else:
+            print('No model with that name. Quitting...')
+            sys.exit(1)        
+
+    def init_new(self):
+        self.n_games = 0
         self.model = Linear_QNet(11,256,3)
-        self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+
+    def save_model(self):
+        model_folder_path = './model'
+        if not os.path.exists(model_folder_path):
+            os.makedirs(model_folder_path)
+        filepath = os.path.join(model_folder_path, self.filename)
+        torch.save(self.model.state_dict(), filepath)
 
     def get_state(self, game):
         snake = game.get_snake()
@@ -85,7 +114,8 @@ class Agent:
         self.trainer.train_step(state, action, reward, next_state, done)
 
     def get_action(self, state):
-        self.epsilon = 100 - self.n_games
+        self.epsilon = 80 - self.n_games
+        final_move = [0,0,0]
         if random.randint(0,200) < self.epsilon:
             final_move = [1,0,0]
         else:
@@ -96,12 +126,12 @@ class Agent:
 
         return final_move
 
-def train():
+def train(new, filename):
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
     record = 0
-    agent = Agent()
+    agent = Agent(new, filename)
     game = SnakeGame()
 
     while True:
@@ -129,7 +159,7 @@ def train():
 
             if score > record:
                 record = score
-                agent.model.save()
+                agent.save_model()
 
             print('Game: ', agent.n_games, ' Score: ', ' Record: ', record)
 
@@ -140,4 +170,19 @@ def train():
             plot(plot_scores, plot_mean_scores)
 
 if __name__ == '__main__':
-    train()
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-n', '--new', help='Train a new model, provide filename after', type=str)
+    group.add_argument('-l', '--load', help='Load an existing model by filename', type=str)
+    args = parser.parse_args()
+
+    if len(sys.argv)==1:
+      parser.print_help(sys.stderr)
+      sys.exit(1)
+
+    if args.new:
+        train(new=True, filename=args.new)
+    elif args.load:
+        train(new=False, filename=args.load)
+    
+    

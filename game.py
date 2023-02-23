@@ -7,7 +7,7 @@ from collections import namedtuple
 WIN_DIM = (800, 600)
 CUBE_SIZE = 20
 GRID_SIZE = (int(WIN_DIM[0] / CUBE_SIZE), int(WIN_DIM[1] / CUBE_SIZE))
-SPEED = 30
+SPEED = 50
 
 GREEN = (119, 217, 89)
 BLACK = (0, 0, 0)
@@ -40,11 +40,10 @@ class Snake:
         # else same direction    
 
         self.grow()
-        self.body.pop(0)
+       
         
     def eat(self, apple):
         if self.head() == apple.pos:
-            self.grow()
             return True
         return False
 
@@ -54,9 +53,10 @@ class Snake:
             if cube == head:
                 collision = True        
         return self.is_outside(head) or collision
-       
+    
+    #TODO se till att svansen växer istället för huvudet
     def grow(self):
-        self.body.insert(0, (Point(self.dir[0] + self.head().x, self.dir[1] + self.head().y)))
+        self.body.append((Point(self.dir[0] + self.head().x, self.dir[1] + self.head().y)))
     
     def head(self):
         return self.body[len(self.body) - 1]
@@ -117,8 +117,9 @@ class SnakeGame:
         if self._snake.eat(self._apple):
             self._score += 1
             reward = 15
-            self._snake.grow()
             self._apple.move()
+        else: 
+            self._snake.body.pop(0)
             
         # 4. update ui and clock   
         self._update_ui()
